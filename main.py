@@ -1,15 +1,21 @@
-import gradio as gr
 import streamlit as st
 
 from PIL import Image, ImageDraw, ImageFont
 import scipy.io.wavfile as wavfile
 import torch
+import numpy as np
 
-from transformers import pipeline, AutoTokenizer, VitsModel
+from transformers import (
+    pipeline,
+    SpeechT5Processor,
+    SpeechT5ForTextToSpeech,
+    SpeechT5HifiGan
+)
+
+from datasets import load_dataset
 
 
 model_path = "facebook/detr-resnet-50"
-tts_model_path = "kakao-enterprise/vits-ljs"
 
 
 @st.cache_resource
@@ -20,40 +26,72 @@ def load_models():
         model=model_path
     )
 
-    tts_tokenizer = AutoTokenizer.from_pretrained(
-        tts_model_path
+    processor = SpeechT5Processor.from_pretrained(
+        "microsoft/speecht5_tts"
     )
 
-    tts_model = VitsModel.from_pretrained(
-        tts_model_path
+    tts_model = SpeechT5ForTextToSpeech.from_pretrained(
+        "microsoft/speecht5_tts"
     )
 
-    return object_detector, tts_tokenizer, tts_model
+    vocoder = SpeechT5HifiGan.from_pretrained(
+        "microsoft/speecht5_hifigan"
+    )
+
+    embeddings_dataset = load_dataset(
+        "Matthijs/cmu-arctic-xvectors",
+        split="validation"
+    )
+
+    speaker_embeddings = torch.tensor(
+        embeddings_dataset[7306]["xvector"]
+    ).unsqueeze(0)
+
+    return (
+        object_detector,
+        processor,
+        tts_model,
+        vocoder,
+        speaker_embeddings
+    )
 
 
-object_detector, tts_tokenizer, tts_model = load_models()
+(
+    object_detector,
+    tts_processor,
+    tts_model,
+    vocoder,
+    speaker_embeddings
+) = load_models()
 
 
 def generate_audio(text):
 
-    inputs = tts_tokenizer(
-        text,
+    inputs = tts_processor(
+        text=text,
         return_tensors="pt"
     )
 
     with torch.no_grad():
 
-        output = tts_model(
-            **inputs
-        ).waveform
+        speech = tts_model.generate_speech(
+            inputs["input_ids"],
+            speaker_embeddings,
+            vocoder=vocoder
+        )
 
-    audio = output.squeeze().cpu().numpy()
+    audio = speech.cpu().numpy()
+
+    audio = np.asarray(
+        audio,
+        dtype=np.float32
+    )
 
     output_file = "output.wav"
 
     wavfile.write(
         output_file,
-        rate=tts_model.config.sampling_rate,
+        rate=16000,
         data=audio
     )
 
@@ -74,6 +112,7 @@ def read_objects(detection_objects):
             object_counts[label] = 1
 
     if not object_counts:
+
         return (
             "This picture does not contain any "
             "recognizable objects."
@@ -208,6 +247,7 @@ def draw_bounding_boxes(
 def detect_object(image):
 
     if image is None:
+
         return None, None
 
     raw_image = image
@@ -238,36 +278,6 @@ def detect_object(image):
     )
 
 
-demo = gr.Interface(
-
-    fn=detect_object,
-
-    inputs=[
-        gr.Image(
-            label="Select Image",
-            type="pil"
-        )
-    ],
-
-    outputs=[
-        gr.Image(
-            label="Processed Image",
-            type="pil"
-        ),
-        gr.Audio(
-            label="Generated Audio"
-        )
-    ],
-
-    title="Object Detector with Audio",
-
-    description=(
-        "THIS APPLICATION WILL BE USED TO HIGHLIGHT OBJECTS "
-        "AND GIVE AUDIO DESCRIPTION FOR THE PROVIDED INPUT IMAGE."
-    )
-)
-
-
 st.set_page_config(
     page_title="Object Detector with Audio",
     page_icon="🔊",
@@ -291,6 +301,7 @@ uploaded_file = st.file_uploader(
         "webp"
     ]
 )
+
 
 if uploaded_file is not None:
 
