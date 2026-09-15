@@ -1,0 +1,12 @@
+streamlit
+gradio
+torch
+torchvision
+torchaudio
+transformers
+huggingface-hub
+safetensors
+tokenizers
+scipy
+pillow
+phonemizer
