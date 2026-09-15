@@ -10,5 +10,3 @@ scipy
 pillow
 timm
 sentencepiece
-datasets
-soundfile

@@ -4,6 +4,9 @@ from PIL import Image, ImageDraw, ImageFont
 import scipy.io.wavfile as wavfile
 import torch
 import numpy as np
+import os
+import zipfile
+import urllib.request
 
 from transformers import (
     pipeline,
@@ -11,8 +14,6 @@ from transformers import (
     SpeechT5ForTextToSpeech,
     SpeechT5HifiGan
 )
-
-from datasets import load_dataset
 
 
 model_path = "facebook/detr-resnet-50"
@@ -38,13 +39,61 @@ def load_models():
         "microsoft/speecht5_hifigan"
     )
 
-    embeddings_dataset = load_dataset(
-        "Matthijs/cmu-arctic-xvectors",
-        split="validation"
+    zip_path = "spkrec-xvect.zip"
+    extract_path = "speaker_embeddings"
+
+    if not os.path.exists(extract_path):
+
+        if not os.path.exists(zip_path):
+
+            url = (
+                "https://huggingface.co/datasets/"
+                "Matthijs/cmu-arctic-xvectors/"
+                "resolve/main/spkrec-xvect.zip"
+            )
+
+            urllib.request.urlretrieve(
+                url,
+                zip_path
+            )
+
+        with zipfile.ZipFile(
+            zip_path,
+            "r"
+        ) as zip_ref:
+
+            zip_ref.extractall(
+                extract_path
+            )
+
+    npy_files = []
+
+    for root, dirs, files in os.walk(
+        extract_path
+    ):
+
+        for file in files:
+
+            if file.endswith(".npy"):
+
+                npy_files.append(
+                    os.path.join(root, file)
+                )
+
+    npy_files.sort()
+
+    if len(npy_files) <= 7306:
+        raise RuntimeError(
+            "Speaker embedding files could not be loaded correctly."
+        )
+
+    speaker_embedding = np.load(
+        npy_files[7306]
     )
 
     speaker_embeddings = torch.tensor(
-        embeddings_dataset[7306]["xvector"]
+        speaker_embedding,
+        dtype=torch.float32
     ).unsqueeze(0)
 
     return (
@@ -301,7 +350,6 @@ uploaded_file = st.file_uploader(
         "webp"
     ]
 )
-
 
 if uploaded_file is not None:
 
