@@ -1,5 +1,4 @@
 streamlit
-gradio
 torch
 torchvision
 torchaudio
@@ -10,3 +9,4 @@ tokenizers
 scipy
 pillow
 phonemizer
+timm
