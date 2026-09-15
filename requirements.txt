@@ -8,5 +8,7 @@ safetensors
 tokenizers
 scipy
 pillow
-phonemizer
 timm
+sentencepiece
+datasets
+soundfile
