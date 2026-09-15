@@ -116,6 +116,8 @@ def load_models():
 
 def generate_audio(text):
 
+    text = str(text).strip()
+
     inputs = tts_processor(
         text=text,
         return_tensors="pt"
@@ -297,7 +299,7 @@ def detect_object(image):
 
     if image is None:
 
-        return None, None
+        return None, None, ""
 
     raw_image = image
 
@@ -315,7 +317,10 @@ def detect_object(image):
         output
     )
 
-    print(natural_text)
+    print(
+        "TEXT SENT TO TTS:",
+        natural_text
+    )
 
     processed_audio = generate_audio(
         natural_text
@@ -323,7 +328,8 @@ def detect_object(image):
 
     return (
         processed_image,
-        processed_audio
+        processed_audio,
+        natural_text
     )
 
 
@@ -351,6 +357,7 @@ uploaded_file = st.file_uploader(
     ]
 )
 
+
 if uploaded_file is not None:
 
     image = Image.open(
@@ -370,7 +377,11 @@ if uploaded_file is not None:
             "Detecting objects and generating audio..."
         ):
 
-            processed_image, processed_audio = detect_object(
+            (
+                processed_image,
+                processed_audio,
+                natural_text
+            ) = detect_object(
                 image
             )
 
@@ -379,15 +390,6 @@ if uploaded_file is not None:
         st.image(
             processed_image,
             use_container_width=True
-        )
-
-        detections = object_detector(
-            image,
-            threshold=0.2
-        )
-
-        natural_text = read_objects(
-            detections
         )
 
         st.subheader("Description")
