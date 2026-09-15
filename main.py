@@ -31,6 +31,8 @@ def load_models():
         "microsoft/speecht5_tts"
     )
 
+    processor.tokenizer.normalize = True
+
     tts_model = SpeechT5ForTextToSpeech.from_pretrained(
         "microsoft/speecht5_tts"
     )
@@ -128,7 +130,8 @@ def generate_audio(text):
         speech = tts_model.generate_speech(
             inputs["input_ids"],
             speaker_embeddings,
-            vocoder=vocoder
+            vocoder=vocoder,
+            maxlenratio=30.0
         )
 
     audio = speech.cpu().numpy()
